@@ -12,10 +12,10 @@ def parse_args():
     parser.add_argument('--augment_flag', type=str2bool, default=True, help='Image augmentation use or not')
     parser.add_argument('--decay_flag', type=str2bool, default=True, help='using learning rate decay')
 
-    parser.add_argument('--epoch', type=int, default=50, help='The number of epochs to run')
-    parser.add_argument('--decay_epoch', type=int, default=25, help='The number of decay epochs to run')
+    parser.add_argument('--epoch', type=int, default=20, help='The number of epochs to run')
+    parser.add_argument('--decay_epoch', type=int, default=10, help='The number of decay epochs to run')
     parser.add_argument('--iteration', type=int, default=10000, help='The number of training iterations')
-    parser.add_argument('--batch_size', type=int, default=1, help='The batch size')
+    parser.add_argument('--batch_size', type=int, default=8, help='The batch size')
     parser.add_argument('--print_freq', type=int, default=1000, help='The number of image_print_freq')
     parser.add_argument('--save_freq', type=int, default=1000, help='The number of ckpt_save_freq')
 
@@ -56,7 +56,7 @@ def parse_args():
 
     parser.add_argument('--sn', type=str2bool, default=False, help='using spectral normalization')
 
-    parser.add_argument('--img_size', type=int, default=256, help='The size of image')
+    parser.add_argument('--img_size', type=int, default=128, help='The size of image')
     parser.add_argument('--img_ch', type=int, default=3, help='The size of image channel')
 
     parser.add_argument('--checkpoint_dir', type=str, default='checkpoint',
@@ -107,7 +107,6 @@ def main():
     # open session
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         gan = DRIT(sess, args)
-
         # build graph
         gan.build_model()
 

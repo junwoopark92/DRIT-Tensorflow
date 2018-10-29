@@ -3,6 +3,7 @@ from tensorflow.contrib import slim
 from scipy import misc
 import os, random
 import numpy as np
+from PIL import Image
 
 class ImageData:
 
@@ -14,40 +15,111 @@ class ImageData:
     def image_processing(self, filename):
         x = tf.read_file(filename)
         x_decode = tf.image.decode_jpeg(x, channels=self.channels)
-        img = tf.image.resize_images(x_decode, [self.img_size, self.img_size])
+        print('pjw', x_decode.get_shape())
+        w = 178
+        h = 218
+        image = tf.image.resize_images(x_decode, [w, h])
+        #img = tf.image.resize_images(x_decode, [self.img_size, self.img_size])
+        seed = random.randint(0,2 ** 31 -1)
+        print('pjw',image.get_shape())
+        image = tf.image.random_flip_left_right(image, seed=seed)
+        img = tf.image.resize_image_with_crop_or_pad(image,178,178)
+        print('pjw',img.get_shape())
+        img = tf.image.resize_images(img,[self.img_size,self.img_size])
+        print('pjw',img.get_shape())
         img = tf.cast(img, tf.float32) / 127.5 - 1
+        
 
-        if self.augment_flag :
-            if self.img_size < 256 :
-                augment_size = 256
-            else :
-                augment_size = self.img_size + 30
-            p = random.random()
-            if p > 0.5:
-                img = augmentation(img, augment_size)
+        #if self.augment_flag :
+        #    if self.img_size < 256 :
+        #        augment_size = 256
+        #    else :
+        #        augment_size = self.img_size + 30
+        #    p = random.random()
+        #    if p > 0.5:
+        #        img = augmentation(img, augment_size)
 
         return img
 
+def cropimread(crop, xcrop, ycrop, img_pre):
+    "Function to crop center of an image file"
+    if crop:
+        ysize, xsize, chan = img_pre.shape
+        xoff = (xsize - xcrop) // 2
+        yoff = (ysize - ycrop) // 2
+        img= img_pre[yoff:-yoff,xoff:-xoff]
+    else:
+        img= img_pre
+    return img\
 
-def load_test_data(image_path, size=256):
+def pilimage_crop(image_path,new_width,new_height):
+    img = Image.open(image_path)
+    width, height = img.size   # Get dimensions
+   
+    left = (width - new_width)/2
+    top = (height - new_height)/2
+    right = (width + new_width)/2
+    bottom = (height + new_height)/2
+    print(left,top,right,bottom)
+    return img.crop((left, top, right, bottom)).resize((256,256))
+
+def crop_center(img,cropx,cropy):
+    y,x,ch = img.shape
+    startx = x//2-(cropx//2)
+    starty = y//2-(cropy//2)    
+    return img[starty:starty+cropy,startx:startx+cropx,:]
+
+def load_test_data(image_path, size=128):
     img = misc.imread(image_path, mode='RGB')
+    img = crop_center(img,178,178)
     img = misc.imresize(img, [size, size])
     img = np.expand_dims(img, axis=0)
     img = preprocessing(img)
 
     return img
 
+def load_test_data_128(image_path, size=128):
+    img = misc.imread(image_path, mode='RGB')
+    #img = crop_center(img,178,178)
+    #img = misc.imresize(img, [size, size])
+    img = np.expand_dims(img, axis=0)
+    img = preprocessing(img)
+
+    return img
+    
+    
+#def load_test_data(image_path, size=256):
+#    #img = misc.imread(image_path, mode='RGB')
+#    #img = cropimread(True,178,218,img)
+#    #img = misc.imresize(img, [size, size])
+#    img = np.asarray(pilimage_crop(image_path,178,178))
+#    img = np.expand_dims(img, axis=0)
+#    img = preprocessing(img)
+
+#    return img
+
 def preprocessing(x):
     x = x/127.5 - 1 # -1 ~ 1
     return x
 
-def augmentation(image, aug_img_size):
+def augmentation1(image, aug_img_size):
     seed = random.randint(0, 2 ** 31 - 1)
     ori_image_shape = tf.shape(image)
     image = tf.image.random_flip_left_right(image, seed=seed)
     image = tf.image.resize_images(image, [aug_img_size, aug_img_size])
     image = tf.random_crop(image, ori_image_shape, seed=seed)
     return image
+
+def augmentation(image, aug_img_size):
+    seed = random.randint(0,2 **31 -1)
+    ori_image_shape = tf.shape(image)
+    print('pjw',image.get_shape())
+    image = tf.image.random_flip_left_right(image, seed=seed)
+    image = tf.image.central_crop(image,1)
+    print('pjw',image.get_shape())
+    image = tf.image.resize_images(image,[aug_img_size,aug_img_size])
+    return image
+
 
 def save_images(images, size, image_path):
     return imsave(inverse_transform(images), size, image_path)

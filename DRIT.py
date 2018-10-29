@@ -3,6 +3,7 @@ from utils import *
 from glob import glob
 import time
 from tensorflow.contrib.data import prefetch_to_device, shuffle_and_repeat, map_and_batch
+import random
 
 class DRIT(object) :
     def __init__(self, sess, args):
@@ -584,6 +585,9 @@ class DRIT(object) :
             guide_content_A, _, _, _ = self.Encoder_A(self.content_image, is_training=False, reuse=True)
             _, guide_attribute_B, _, _ = self.Encoder_B(self.attribute_image, is_training=False, reuse=True)
             self.guide_fake_B = self.Decoder_B(content_A=guide_content_A, attribute_B=guide_attribute_B, reuse=True)
+            guide_content_B, _, _, _ = self.Encoder_B(self.content_image, is_training=False, reuse=True)
+            _, guide_attribute_A, _, _ = self.Encoder_A(self.attribute_image, is_training=False, reuse=True)
+            self.guide_fake_A = self.Decoder_A(content_B=guide_content_B, attribute_A=guide_attribute_A, reuse=True)
 
         else :
             guide_content_B, _, _, _ = self.Encoder_B(self.content_image, is_training=False, reuse=True)
@@ -650,11 +654,11 @@ class DRIT(object) :
                 if np.mod(idx + 1, self.print_freq) == 0:
                     save_images(batch_A_images, [self.batch_size, 1],
                                 './{}/real_A_{:03d}_{:05d}.jpg'.format(self.sample_dir, epoch, idx + 1))
-                    # save_images(batch_B_images, [self.batch_size, 1],
-                    #             './{}/real_B_{}_{:03d}_{:05d}.jpg'.format(self.sample_dir, gpu_id, epoch, idx+1))
+                    save_images(batch_B_images, [self.batch_size, 1],
+                                 './{}/real_B_{}_{:03d}_{:05d}.jpg'.format(self.sample_dir, 0, epoch, idx+1))
 
-                    # save_images(fake_A, [self.batch_size, 1],
-                    #             './{}/fake_A_{}_{:03d}_{:05d}.jpg'.format(self.sample_dir, gpu_id, epoch, idx+1))
+                    save_images(fake_A, [self.batch_size, 1],
+                                 './{}/fake_A_{}_{:03d}_{:05d}.jpg'.format(self.sample_dir, 0, epoch, idx+1))
                     save_images(fake_B, [self.batch_size, 1],
                                 './{}/fake_B_{:03d}_{:05d}.jpg'.format(self.sample_dir, epoch, idx + 1))
 
@@ -768,13 +772,70 @@ class DRIT(object) :
                         '../..' + os.path.sep + image_path), self.img_size, self.img_size))
                 index.write("</tr>")
         index.close()
+        
+    def i2i_by_filenames(self, filenamesA=None, filenamesB=None,imgdirA=None, imgdirB=None):
+        tf.global_variables_initializer().run()
+        self.saver = tf.train.Saver()
+        could_load, checkpoint_counter = self.load(self.checkpoint_dir)
+        if could_load:
+            print(" [*] Load SUCCESS")
+        else:
+            print(" [!] Load failed...")
 
+        ABs = []
+        As = []
+        Bs = []
+        for filenameA, filenameB in zip(filenamesA, filenamesB):
+            if filenameB is None:
+                test_B_files = glob('./dataset/{}/*.*'.format(self.dataset_name + '/testB'))
+                filenameB = test_B_files[0].split('\\')[-1]
+
+            if filenameA is None:
+                test_A_files = glob('./dataset/{}/*.*'.format(self.dataset_name + '/testA'))
+                filenameA = test_A_files[0].split('\\')[-1]
+            
+            if imgdirA is None:
+                A_pre = './dataset/{}/'.format(self.dataset_name + '/testA')
+            else:
+                A_pre = imgdirA
+            if imgdirB is None:
+                B_pre = './dataset/{}/'.format(self.dataset_name + '/testB')
+            else:
+                B_pre = imgdirB
+                
+            #print(A_pre+filenameA)
+            #print(B_pre+filenameB)
+            test_A_file = glob(A_pre+filenameA)
+            test_B_file = glob(B_pre+filenameB)
+    
+            print(test_A_file)
+            print(test_B_file)
+    
+            #A = np.asarray(load_test_data(test_A_file[0], size=self.img_size))
+            A = np.asarray(load_test_data_128(test_A_file[0], size=self.img_size))
+            B = np.asarray(load_test_data(test_B_file[0], size=self.img_size))
+            
+            if self.direction == 'a2b':
+                AB = self.sess.run(self.guide_fake_B,
+                                    feed_dict={self.content_image: A, self.attribute_image: B})
+            if self.direction == 'b2a':
+                AB = self.sess.run(self.guide_fake_A,
+                                    feed_dict={self.content_image: B, self.attribute_image: A})
+            
+            AB =  merge(inverse_transform(AB), [1, 1])
+            A = merge(inverse_transform(A), [1, 1])
+            B = merge(inverse_transform(B), [1, 1])
+            ABs.append(Image.fromarray(np.uint8(AB*255)))
+            As.append(Image.fromarray(np.uint8(A*255)))
+            Bs.append(Image.fromarray(np.uint8(B*255)))
+        return As, Bs, ABs
+        
     def guide_test(self):
         tf.global_variables_initializer().run()
-        test_A_files = glob('./dataset/{}/*.*'.format(self.dataset_name + '/testA'))
-        test_B_files = glob('./dataset/{}/*.*'.format(self.dataset_name + '/testB'))
+        test_A_files = random.choices(glob('./dataset/{}/*.*'.format(self.dataset_name + '/testA')),k=10)
+        test_B_files = random.choices(glob('./dataset/{}/*.*'.format(self.dataset_name + '/testB')),k=10)
 
-        attribute_file = np.asarray(load_test_data(self.guide_img, size=self.img_size))
+        #attribute_file = np.asarray(load_test_data(self.guide_img, size=self.img_size))
 
         self.saver = tf.train.Saver()
         could_load, checkpoint_counter = self.load(self.checkpoint_dir)
@@ -785,42 +846,32 @@ class DRIT(object) :
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
-
+            
         # write html for visual comparison
         index_path = os.path.join(self.result_dir, 'index.html')
+        grid_path = os.path.join(self.result_dir, 'gridimage.jpg')
         index = open(index_path, 'w')
         index.write("<html><body><table><tr>")
         index.write("<th>name</th><th>input</th><th>output</th></tr>")
+        
+        saveimages = None
 
-        if self.direction == 'a2b' :
-            for sample_file in test_A_files:  # A -> B
-                print('Processing A image: ' + sample_file)
-                sample_image = np.asarray(load_test_data(sample_file, size=self.img_size))
-                image_path = os.path.join(self.result_dir, '{}'.format(os.path.basename(sample_file)))
-
-                fake_img = self.sess.run(self.guide_fake_B, feed_dict={self.content_image: sample_image, self.attribute_image : attribute_file})
-                save_images(fake_img, [1, 1], image_path)
-
-                index.write("<td>%s</td>" % os.path.basename(image_path))
-                index.write("<td><img src='%s' width='%d' height='%d'></td>" % (sample_file if os.path.isabs(sample_file) else (
-                        '../../..' + os.path.sep + sample_file), self.img_size, self.img_size))
-                index.write("<td><img src='%s' width='%d' height='%d'></td>" % (image_path if os.path.isabs(image_path) else (
-                        '../../..' + os.path.sep + image_path), self.img_size, self.img_size))
-                index.write("</tr>")
-
-        else :
-            for sample_file in test_B_files:  # B -> A
-                print('Processing B image: ' + sample_file)
-                sample_image = np.asarray(load_test_data(sample_file, size=self.img_size))
-                image_path = os.path.join(self.result_dir, '{}'.format(os.path.basename(sample_file)))
-
-                fake_img = self.sess.run(self.guide_fake_A, feed_dict={self.content_image: sample_image, self.attribute_image : attribute_file})
-                save_images(fake_img, [1, 1], image_path)
-
-                index.write("<td>%s</td>" % os.path.basename(image_path))
-                index.write("<td><img src='%s' width='%d' height='%d'></td>" % (sample_file if os.path.isabs(sample_file) else (
-                        '../../..' + os.path.sep + sample_file), self.img_size, self.img_size))
-                index.write("<td><img src='%s' width='%d' height='%d'></td>" % (image_path if os.path.isabs(image_path) else (
-                        '../../..' + os.path.sep + image_path), self.img_size, self.img_size))
-                index.write("</tr>")
-        index.close()
+        imagesA = []
+        imagesB = []
+        imagesAB = []
+        imagesBA = []
+        if self.direction == 'a2b':
+            for imageA, imageB in zip(test_A_files,test_B_files):
+                imgA = np.asarray(load_test_data(imageA, size=self.img_size))
+                imgB = np.asarray(load_test_data(imageB, size=self.img_size))
+                imagesA.append(imgA)
+                imagesB.append(imgB)
+                
+                fakeAB = self.sess.run(self.guide_fake_B, feed_dict={self.content_image: imgA, self.attribute_image : imgB})
+                fakeBA = self.sess.run(self.guide_fake_A, feed_dict={self.content_image: imgB, self.attribute_image : imgA})
+                
+                imagesAB.append(fakeAB)
+                imagesBA.append(fakeBA)
+        
+        saveimages = imagesA + imagesB + imagesAB + imagesBA
+        save_images(np.vstack(saveimages), [4, 10], grid_path)
