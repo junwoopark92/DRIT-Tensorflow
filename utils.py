@@ -15,18 +15,14 @@ class ImageData:
     def image_processing(self, filename):
         x = tf.read_file(filename)
         x_decode = tf.image.decode_jpeg(x, channels=self.channels)
-        print('pjw', x_decode.get_shape())
         w = 178
         h = 218
         image = tf.image.resize_images(x_decode, [w, h])
         #img = tf.image.resize_images(x_decode, [self.img_size, self.img_size])
         seed = random.randint(0,2 ** 31 -1)
-        print('pjw',image.get_shape())
         image = tf.image.random_flip_left_right(image, seed=seed)
         img = tf.image.resize_image_with_crop_or_pad(image,178,178)
-        print('pjw',img.get_shape())
         img = tf.image.resize_images(img,[self.img_size,self.img_size])
-        print('pjw',img.get_shape())
         img = tf.cast(img, tf.float32) / 127.5 - 1
         
 
