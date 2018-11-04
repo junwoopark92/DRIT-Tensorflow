@@ -1,8 +1,9 @@
 # update celebA pretrained model usage
 ![directory](./assets/directory_shape.PNG)
 
-model download
+## pretrained model download (128 x 128 size)
 [black2blond](https://drive.google.com/open?id=15rxB2M6bGeVA7JO3DPTwaYqUt5_uGEUm)
+[black2brown](https://drive.google.com/open?id=1L8wBMcJECSb4Kcn1UnkC2CuBELLfGgXU)
 
 
 # DRIT-Tensorflow
