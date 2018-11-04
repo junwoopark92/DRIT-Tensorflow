@@ -1,3 +1,10 @@
+# update celebA pretrained model usage
+![directory](./assets/directory_shape.PNG)
+
+model download
+[black2blond](https://drive.google.com/open?id=15rxB2M6bGeVA7JO3DPTwaYqUt5_uGEUm)
+
+
 # DRIT-Tensorflow
 Simple Tensorflow implementation of [Diverse Image-to-Image Translation via Disentangled Representations](https://arxiv.org/abs/1808.00948) (ECCV 2018 Oral)
 
