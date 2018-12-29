@@ -17,7 +17,7 @@ class ImageData:
         x_decode = tf.image.decode_jpeg(x, channels=self.channels)
         w = 178
         h = 218
-        image = tf.image.resize_images(x_decode, [w, h])
+        image = tf.image.resize_images(x_decode, [h, w]) #size => (new_height, new_width)
         #img = tf.image.resize_images(x_decode, [self.img_size, self.img_size])
         seed = random.randint(0,2 ** 31 -1)
         image = tf.image.random_flip_left_right(image, seed=seed)
